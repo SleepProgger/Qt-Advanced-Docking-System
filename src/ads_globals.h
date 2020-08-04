@@ -37,6 +37,10 @@
 #include <QDebug>
 #include <QStyle>
 
+#ifdef Q_OS_LINUX
+#include <xcb/xcb.h>
+#endif
+
 QT_FORWARD_DECLARE_CLASS(QAbstractButton)
 
 #ifndef ADS_STATIC
@@ -122,12 +126,24 @@ enum eBitwiseOperator
 	BitwiseOr
 };
 
+
+
+
 namespace internal
 {
 static const bool RestoreTesting = true;
 static const bool Restore = false;
 static const char* const ClosedProperty = "close";
 static const char* const DirtyProperty = "dirty";
+
+#ifdef Q_OS_LINUX
+	// Utils to directly communicate with the X server
+	static QHash<QString, xcb_atom_t> xcb_atoms;
+	xcb_atom_t xcb_get_atom(const char *name);
+	bool xcb_dump_props(WId window, const char *type);
+	void xcb_add_prop(WId window, const char *type, const char *prop);
+	void xcb_update_prop(bool set, WId window, const char *type, const char *prop, const char *prop2 = nullptr);
+#endif
 
 /**
  * Replace the from widget in the given splitter with the To widget

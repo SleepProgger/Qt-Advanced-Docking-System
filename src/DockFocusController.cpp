@@ -25,10 +25,6 @@
 #include "DockManager.h"
 #include "DockAreaTitleBar.h"
 
-#ifdef Q_OS_LINUX
-#include "linux/FloatingWidgetTitleBar.h"
-#endif
-
 namespace ads
 {
 /**
@@ -79,21 +75,6 @@ static void updateDockAreaFocusStyle(CDockAreaWidget* DockArea, bool Focused)
 }
 
 
-//===========================================================================
-#ifdef Q_OS_LINUX
-static void updateFloatingWidgetFocusStyle(CFloatingDockContainer* FloatingWidget, bool Focused)
-{
-    auto TitleBar = qobject_cast<CFloatingWidgetTitleBar*>(FloatingWidget->titleBarWidget());
-    if (!TitleBar)
-    {
-        return;
-    }
-    TitleBar->setProperty("focused", Focused);
-    TitleBar->updateStyle();
-}
-#endif
-
-
 //============================================================================
 DockFocusControllerPrivate::DockFocusControllerPrivate(
     CDockFocusController *_public) :
@@ -141,26 +122,6 @@ void DockFocusControllerPrivate::updateDockWidgetFocus(CDockWidget* DockWidget)
     	NewFloatingWidget->setProperty("FocusedDockWidget", QVariant::fromValue(DockWidget));
     }
 
-
-#ifdef Q_OS_LINUX
-	// This code is required for styling the floating widget titlebar for linux
-	// depending on the current focus state
-    if (FloatingWidget == NewFloatingWidget)
-    {
-        return;
-    }
-
-    if (FloatingWidget)
-    {
-        updateFloatingWidgetFocusStyle(FloatingWidget, false);
-    }
-    FloatingWidget = NewFloatingWidget;
-
-    if (FloatingWidget)
-    {
-        updateFloatingWidgetFocusStyle(FloatingWidget, true);
-    }
-#endif
 
     if (old == DockWidget && !ForceFocusChangedSignal)
     {

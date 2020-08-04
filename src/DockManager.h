@@ -140,6 +140,10 @@ protected:
 	 */
 	virtual void showEvent(QShowEvent *event) override;
 
+#ifdef Q_OS_LINUX
+	virtual bool eventFilter(QObject *obj, QEvent *e) override;
+#endif
+
 public:
 	using Super = CDockContainerWidget;
 

@@ -33,17 +33,123 @@
 #include <QAbstractButton>
 #include <QStyle>
 
+#ifdef Q_OS_LINUX
+#include <QX11Info>
+#endif
+
 #include "DockSplitter.h"
 #include "DockManager.h"
 #include "IconProvider.h"
 #include "ads_globals.h"
-
 
 namespace ads
 {
 
 namespace internal
 {
+
+#ifdef Q_OS_LINUX
+xcb_atom_t xcb_get_atom(const char *name){
+	if (!QX11Info::isPlatformX11()){
+		return XCB_ATOM_NONE;
+	}
+	auto key = QString(name);
+	if(xcb_atoms.contains(key)){
+		return xcb_atoms[key];
+	}
+	xcb_connection_t *connection = QX11Info::connection();
+	xcb_intern_atom_cookie_t request = xcb_intern_atom(connection, 1, strlen(name), name);
+	xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply(connection, request, NULL);
+	if(!reply){
+		return XCB_ATOM_NONE;
+	}
+	xcb_atom_t atom = reply->atom;
+	if(atom == XCB_ATOM_NONE){
+		ADS_PRINT("Unknown Atom response from XServer: " << name);
+	} else {
+		xcb_atoms.insert(key, atom);
+	}
+	free(reply);
+	return atom;
+}
+
+void xcb_update_prop(bool set, WId window, const char *type, const char *prop, const char *prop2)
+{
+	auto connection = QX11Info::connection();
+	xcb_atom_t type_atom = xcb_get_atom(type);
+	xcb_atom_t prop_atom = xcb_get_atom(prop);
+	xcb_client_message_event_t event;
+	event.response_type = XCB_CLIENT_MESSAGE;
+	event.format = 32;
+	event.sequence = 0;
+	event.window = window;
+	event.type = type_atom;
+	event.data.data32[0] = set ? 1 : 0;
+	event.data.data32[1] = prop_atom;
+	event.data.data32[2] = prop2 ? xcb_get_atom(prop2) : 0;
+	event.data.data32[3] = 0;
+	event.data.data32[4] = 0;
+
+	xcb_send_event(connection, 0, window,
+				   XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_PROPERTY_CHANGE,
+				   (const char *)&event);
+	xcb_flush(connection);
+}
+
+void xcb_get_props(WId window, const char *type, QVector<xcb_atom_t> &ret){
+	if (!QX11Info::isPlatformX11()){
+		return;
+	}
+	xcb_connection_t *connection = QX11Info::connection();
+	xcb_atom_t type_atom = xcb_get_atom(type);
+	if (type_atom == XCB_ATOM_NONE){
+		return;
+	}
+	xcb_get_property_cookie_t request = xcb_get_property_unchecked(connection, 0, window, type_atom, XCB_ATOM_ATOM, 0, 1024);
+	xcb_get_property_reply_t *reply = xcb_get_property_reply(connection, request, nullptr);
+	if (reply && reply->format == 32 && reply->type == XCB_ATOM_ATOM && reply->value_len > 0) {
+		const xcb_atom_t *data = static_cast<const xcb_atom_t *>(xcb_get_property_value(reply));
+		ret.resize(reply->value_len);
+		memcpy((void *)&ret.first(), (void *)data, reply->value_len * sizeof(xcb_atom_t));
+	}
+	free(reply);
+}
+
+bool xcb_dump_props(WId window, const char *type){
+	QVector<xcb_atom_t> atoms;
+	xcb_get_props(window, type, atoms);
+	qDebug() << "\n\n!!!" << type << "  -  " << atoms.length();
+	xcb_connection_t *connection = QX11Info::connection();
+	for(auto atom : atoms){
+		auto foo = xcb_get_atom_name(connection, atom);
+		auto bar = xcb_get_atom_name_reply(connection, foo, nullptr);
+		qDebug() << "\t" << xcb_get_atom_name_name(bar);
+		free(bar);
+	}
+	return true;
+}
+
+void xcb_add_prop(WId window, const char *type, const char *prop){
+	if (!QX11Info::isPlatformX11()){
+		return;
+	}
+	xcb_atom_t prop_atom = xcb_get_atom(prop);
+	xcb_atom_t type_atom = xcb_get_atom(type);
+	if(prop_atom == XCB_ATOM_NONE || type_atom == XCB_ATOM_NONE){
+		return;
+	}
+	QVector<xcb_atom_t> atoms;
+	xcb_get_props(window, type, atoms);
+	if(!atoms.contains(prop_atom)){
+		atoms.push_back(prop_atom);
+	}
+	xcb_connection_t *connection = QX11Info::connection();
+	xcb_change_property(connection, XCB_PROP_MODE_REPLACE, window, type_atom, XCB_ATOM_ATOM, 32, atoms.count(), atoms.constData());
+	xcb_flush(connection);
+}
+#endif
+
+
 //============================================================================
 void replaceSplitterWidget(QSplitter* Splitter, QWidget* From, QWidget* To)
 {

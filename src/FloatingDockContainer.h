@@ -33,13 +33,8 @@
 
 #include <QRubberBand>
 
-#ifdef Q_OS_LINUX
-#include <QDockWidget>
-#define tFloatingWidgetBase QDockWidget
-#else
 #include <QWidget>
 #define tFloatingWidgetBase QWidget
-#endif
 
 class CDockingStateReader;
 
@@ -180,12 +175,13 @@ protected: // reimplements QWidget
 	virtual void hideEvent(QHideEvent *event) override;
 	virtual void showEvent(QShowEvent *event) override;
 
-#ifdef Q_OS_MACOS
-	virtual bool event(QEvent *e) override;
+#if defined Q_OS_LINUX
 	virtual void moveEvent(QMoveEvent *event) override;
-#endif
 
-#ifdef Q_OS_WIN
+#elif defined Q_OS_MACOS
+	virtual void moveEvent(QMoveEvent *event) override;
+	virtual bool event(QEvent *e) override;
+#elif defined Q_OS_WIN
 	/**
 	 * Native event filter for handling WM_MOVING messages on Windows
 	 */
@@ -248,6 +244,18 @@ public:
      * function of the internal container widget.
      */
     QList<CDockWidget*> dockWidgets() const;
+
+#if defined Q_OS_LINUX
+	/**
+	 * Overwritten hide to allow to prevent firing the hide ebvent.
+	 * Used for syncincg minimizing with the main window.
+	 */
+	void hide(bool no_event=false);
+	/**
+	 * Overwritten show to keep this window hidden from the taskbar and pager.
+	 */
+	void show();
+#endif
 }; // class FloatingDockContainer
 }
  // namespace ads

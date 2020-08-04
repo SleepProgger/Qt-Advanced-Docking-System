@@ -70,8 +70,9 @@ SOURCES += \
 
 
 unix {
-HEADERS += linux/FloatingWidgetTitleBar.h
-SOURCES += linux/FloatingWidgetTitleBar.cpp
+HEADERS +=
+SOURCES +=
+QT += x11extras
 }
 
 isEmpty(PREFIX){

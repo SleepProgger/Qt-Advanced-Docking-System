@@ -56,9 +56,6 @@
 #include "DockAreaTitleBar.h"
 #include "DockFocusController.h"
 
-#ifdef Q_OS_LINUX
-#include "linux/FloatingWidgetTitleBar.h"
-#endif
 
 
 /**
@@ -174,7 +171,6 @@ DockManagerPrivate::DockManagerPrivate(CDockManager* _public) :
 {
 
 }
-
 
 //============================================================================
 void DockManagerPrivate::loadStylesheet()
@@ -424,6 +420,8 @@ bool DockManagerPrivate::restoreState(const QByteArray& State, int version)
 }
 
 
+
+
 //============================================================================
 void DockManagerPrivate::addActionToMenu(QAction* Action, QMenu* Menu, bool InsertSorted)
 {
@@ -474,6 +472,12 @@ CDockManager::CDockManager(QWidget *parent) :
 	{
 		d->FocusController = new CDockFocusController(this);
 	}
+
+#ifdef Q_OS_LINUX
+	// TODO: move to FloatingDockContainer ?
+	// THis would mean x event listener insead of one tho...
+	window()->installEventFilter(this);
+#endif
 }
 
 //============================================================================
@@ -487,6 +491,42 @@ CDockManager::~CDockManager()
 	delete d;
 }
 
+#ifdef Q_OS_LINUX
+bool CDockManager::eventFilter(QObject *obj, QEvent *e){
+	// Emulate Qt:Tool behaviour.
+	// Required because on some WMs Tool windows can't be maximized.
+
+	// Window always on top of the MainWindow.
+	if(e->type() == QEvent::WindowActivate){
+		for(auto _window : floatingWidgets()){
+			// setWindowFlags(Qt::WindowStaysOnTopHint) will hide the window and thus requires a show call.
+			// This then leads to flickering and a nasty endless loop (also buggy behaviour on Ubuntu).
+			// So we just do it ourself.
+			internal::xcb_update_prop(true, _window->window()->winId(), "_NET_WM_STATE", "_NET_WM_STATE_ABOVE", "_NET_WM_STATE_STAYS_ON_TOP");
+		}
+	}
+	else if(e->type() == QEvent::WindowDeactivate){
+		for(auto _window : floatingWidgets()){
+			internal::xcb_update_prop(false, _window->window()->winId(), "_NET_WM_STATE", "_NET_WM_STATE_ABOVE", "_NET_WM_STATE_STAYS_ON_TOP");
+		}
+	}
+
+	// Sync minimize with MainWindow
+	if(e->type() == QEvent::WindowStateChange){
+		for(auto _window : floatingWidgets()){
+			if(window()->isMinimized()){
+				// Some WMs don't seem to allow to minimize windows without a minimize button and/or no entry in the taskbar.
+				// Hide parameter prevents triggering applications hide events.
+				_window->hide(true);
+			}else{
+				_window->show();
+				_window->raise();
+			}
+		}
+	}
+	return Super::eventFilter(obj, e);
+}
+#endif
 
 //============================================================================
 void CDockManager::registerFloatingWidget(CFloatingDockContainer* FloatingWidget)
