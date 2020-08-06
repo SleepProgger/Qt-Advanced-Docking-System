@@ -491,6 +491,7 @@ CDockManager::~CDockManager()
 	delete d;
 }
 
+//============================================================================
 #ifdef Q_OS_LINUX
 bool CDockManager::eventFilter(QObject *obj, QEvent *e){
 	// Emulate Qt:Tool behaviour.
@@ -499,6 +500,9 @@ bool CDockManager::eventFilter(QObject *obj, QEvent *e){
 	// Window always on top of the MainWindow.
 	if(e->type() == QEvent::WindowActivate){
 		for(auto _window : floatingWidgets()){
+			if(!_window->topLevelDockWidget()){
+				continue;
+			}
 			// setWindowFlags(Qt::WindowStaysOnTopHint) will hide the window and thus requires a show call.
 			// This then leads to flickering and a nasty endless loop (also buggy behaviour on Ubuntu).
 			// So we just do it ourself.
@@ -514,9 +518,13 @@ bool CDockManager::eventFilter(QObject *obj, QEvent *e){
 	// Sync minimize with MainWindow
 	if(e->type() == QEvent::WindowStateChange){
 		for(auto _window : floatingWidgets()){
+			if(! _window->topLevelDockWidget()){
+				continue;
+			}
 			if(window()->isMinimized()){
 				// Some WMs don't seem to allow to minimize windows without a minimize button and/or no entry in the taskbar.
 				// Hide parameter prevents triggering applications hide events.
+				_window->raise();
 				_window->hide(true);
 			}else{
 				_window->show();

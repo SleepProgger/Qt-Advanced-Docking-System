@@ -369,6 +369,7 @@ struct FloatingDockContainerPrivate
 	QPoint DragStartPos;
 	bool Hiding = false;
 	bool BlockHideEvent = false;
+	bool Resizing = false;
 
 	/**
 	 * Private data constructor
@@ -443,7 +444,7 @@ struct FloatingDockContainerPrivate
 //============================================================================
 FloatingDockContainerPrivate::FloatingDockContainerPrivate(
 	CFloatingDockContainer *_public) :
-	_this(_public), BlockHideEvent(false)
+	_this(_public)
 {
 
 }
@@ -961,10 +962,18 @@ void CFloatingDockContainer::finishDragging()
 }
 
 #ifdef Q_OS_LINUX
+void CFloatingDockContainer::resizeEvent(QResizeEvent *event){
+	d->Resizing = true;
+	Super::resizeEvent(event);
+}
 void CFloatingDockContainer::moveEvent(QMoveEvent *event){
+	Super::moveEvent(event);
 	Q_UNUSED(event);
-	d->DraggingState = DraggingFloatingWidget;
-	d->updateDropOverlays(QCursor::pos());
+	if(!d->Resizing && event->spontaneous()){
+		d->DraggingState = DraggingFloatingWidget;
+		d->updateDropOverlays(QCursor::pos());
+	}
+	d->Resizing = false;
 }
 #endif
 

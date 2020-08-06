@@ -176,6 +176,7 @@ protected: // reimplements QWidget
 	virtual void showEvent(QShowEvent *event) override;
 
 #if defined Q_OS_LINUX
+	virtual void resizeEvent(QResizeEvent *event) override;
 	virtual void moveEvent(QMoveEvent *event) override;
 
 #elif defined Q_OS_MACOS
